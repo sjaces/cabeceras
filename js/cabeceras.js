@@ -3,9 +3,13 @@
  *
  * scripts creados para la discriminación de las diferentes cabeceras online del Grupo Joly
  * 
+ * version 0.3
+ *  · soporte para autocomprobar la url primero.
  * version 0.2
  *  · Se ha añadido checkLinks(URL) la búsqueda de hiperenlaces que necesiten ser actualizados según la cabecera. 
  *    para ello se usa una propiedad cabecera=""
+ * version 0.1 
+ *  
  */
 
 
@@ -13,7 +17,13 @@
 
 
 //Tipos de logos son "color", "negro" o "blanco" y está relacionado con la carpeta de logos dentro de manchetas
-const TIPOSDELOGOS = "color";   
+const TIPOSDELOGOS = "color";
+const DIASCOOKIE = 2;   
+
+
+
+// automáticamente se comprueba, aunque se recomienda usar una imagen de DOM para que cuando ésta cargue, se lance la funcion compruebaCabecera()
+//  onload="compruebaCabecera()"
 
 window.onload = (function () {
 
@@ -21,26 +31,29 @@ window.onload = (function () {
 
 });
 
-function compruebaCabecera() {
-    // body...
-    decideCabecera();
 
+function compruebaCabecera() {
+    // La función va llamando a los distintos métodos que se encargan de cada opción
+    
+    var deDondeVengo = document.referrer;
+    var miUrl = document.URL;
+
+    decideCabecera(miUrl);
+    decideCabecera(deDondeVengo);
     compruebaGet();
     if (obtenerCookie("cabecera") != "") {
         pintaCabecera(obtenerCookie("cabecera"))
     }
 }
 
-function decideCabecera() {
-    // body...
-    var url = document.referrer;
+function decideCabecera(url) {
+    // Esta función decide la cabecera en función de la url que se pasa como argumento.
+    
 
     if (url) {
         var partes = url.split('//');
-        // console.log("split de // "+partes); 
 
         partes = partes[1].split('/');
-        // console.log("split de // "+partes); 
 
         partes = partes[0];
         console.log("split de . " + partes);
@@ -49,66 +62,55 @@ function decideCabecera() {
         switch (partes) {
             case "www.diariodesevilla.es":
             case "m.diariodesevilla.es":
-                // console.log("ds "+partes);
                 pintaCabecera("ds");
                 break;
             case "www.diariodecadiz.es":
             case "m.diariodecadiz.es":
-                // console.log("dc "+partes);
                 pintaCabecera("dc");
                 break;
-
             case "www.diariodejerez.es":
             case "m.diariodejerez.es":
-                // console.log("dj "+partes);
                 pintaCabecera("dj");
                 break;
             case "www.europasur.es":
             case "m.europasur.es":
-                // console.log("es "+partes);
                 pintaCabecera("es");
                 break;
             case "www.diariodealmeria.es":
             case "m.diariodealmeria.es":
-                // console.log("da "+partes);
                 pintaCabecera("da");
                 break;
             case "www.eldiadecordoba.es":
             case "m.eldiadecordoba.es":
-                // console.log("ed "+partes);
                 pintaCabecera("ed");
                 break;
             case "www.granadahoy.com":
             case "m.granadahoy.com":
-                // console.log("gh "+partes);
                 pintaCabecera("gh");
                 break;
             case "www.huelvainformacion.es":
             case "m.huelvainformacion.es":
-                // console.log("hi "+partes);
                 pintaCabecera("hi");
                 break;
             case "www.malagahoy.es":
             case "m.malagahoy.es":
-                // console.log("mh "+partes);
                 pintaCabecera("mh");
-                break;
-            default:
-                // console.log("GJ");
-                pintaCabecera("gj");
-                break;
+                break;            
         }
     }
 }
 
 
 function compruebaGet() {
-    // body...
+    // Esta función comprueba se se ha pasado por la url un parametro
+    //   cabecera=ds
+    //   la estructura para probar directamente en el navegador sería:
+    //   http://........html?cabecera=dj
+
     var valoresGet = getGET();
 
     if (valoresGet && valoresGet["cabecera"]) {
         var micab = valoresGet["cabecera"].split('#')[0];
-        // console.log("Cabecera por get "+ micab);
         switch (micab) {
             case "ds":
             case "hi":
@@ -121,20 +123,19 @@ function compruebaGet() {
             case "da":
                 pintaCabecera(micab);
                 break;
-            default:
-                pintaCabecera("gj");
+            
         }
     }
 }
 
+
 function pintaCabecera(argument) {
-    // body...
+    // esta es la función que realiza los cambios de logo y enlaces
     var url = "";
     if (argument != "gj") {
 
-
-
-        crearCookie("cabecera", argument, 1);
+        //creo la cookie para que siempre se pinte la cabecera de ese periódico si la url o el historial o el parámetro de la url no está presente.
+        crearCookie("cabecera", argument, DIASCOOKIE);   
         switch (argument) {
             case "ds":
                 url = "www.diariodesevilla.es";
@@ -165,11 +166,14 @@ function pintaCabecera(argument) {
                 break;
         }
 
+
+
+        // modificaciones sobre el DOM 
         window.document.getElementById('home').setAttribute('href', 'https://' + url);
         urlMancheta = `manchetas/${TIPOSDELOGOS}/` + argument + ".png";
         document.getElementById('mancheta').setAttribute("src", urlMancheta);
         window.history.pushState(window.location.href.split('?')[0], "pageview", window.location.href.split('?')[0]);
-        crearCookie("cabecera", argument, 1);
+        
 
         // changing the links with a cabecera property
         checkLinks(url);
@@ -178,14 +182,16 @@ function pintaCabecera(argument) {
 
     } else {
         // si no he pintado una cabecera, se queda la del Grupo Joly, que está de maqueta en el index.html y borro la cookie
-        crearCookie("cabecera", "", -1);
+        // crearCookie("cabecera", "", -1);
     }
 
 }
 
 function checkLinks(URL) {
 
-    var nodes =$('a[cabecera]');
+    // Buscará todos los enlaces que tentan un atributo cabecera="" y cambiará la raíz a la cabecera correspondiente
+
+    var nodes = $('a[cabecera]');
 
     for (var i = 0; i < nodes.length; i++){
         var oldURLTail;
@@ -200,10 +206,9 @@ function checkLinks(URL) {
         }
         var newURL= `https://${URL}/${oldURLTail}`;
 
-        // changing the link
+        // changing the link in the DOM
         $('a[cabecera=""]:nth('+i+')').attr('href', newURL);
 
-        // console.log(`Cambiando ${newURL}`);
 
     }
     
